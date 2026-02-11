@@ -41,14 +41,14 @@ This tutorial demonstrates the setting up and running of the `Fsquared` simulati
 
 # Workflow
 
-At the heart of this toolset is a shortcut MSE framework that introduces some level of estimation error from the management procedure stock assessment model and, uses a short-term forecast to bridge the data and management lags, as it is commonly done for asdvice in ICES.
+At the heart of this toolset is a shortcut MSE framework that introduces some level of estimation error from the management procedure stock assessment model and, uses a short-term forecast to bridge the data and management lags, as it is commonly done for advice in ICES.
 
-To setup and run the shortcut MSE, the user would generally take these steps:
+`model_fsquared.R` sets up and runs the shortcut MSE, generally in these steps:
 
-1. Set simulation parameters such as the number of iterations and projection years (`config.R`)
-2. Configure and/or condition parameters of the operating model (OM) and the management procedure (MP) (`frps.R`).
-3. Run closed loop simulations of the standard ICES advice rule parameterized by the MSY Btrigger [REFERENCE] over a range of Ftarget values (`frps.R`).
-4. Derive equilibrium distributions of stock quantities (spawning biomass, catches, etc.) for each Ftarget and calculate ICES' Fp05 and Fmsy reference points (`output.R`).
+1. Set simulation parameters such as the number of iterations and projection years.
+2. Configure and/or condition parameters of the operating model (OM) and the management procedure (MP).
+3. Run closed loop simulations of the standard ICES advice rule parameterized by the MSY Btrigger [REFERENCE] over a range of Ftarget values.
+4. Derive equilibrium distributions of stock quantities (spawning biomass, catches, etc.) for each Ftarget and calculate ICES' Fp05 and Fmsy reference points.
 
 - Run first with it = cores, so that the call to mps() runs in parallel
 
@@ -59,20 +59,20 @@ To setup and run the shortcut MSE, the user would generally take these steps:
   - No explicit OEM (i.e. perfect observations of spawning biomass)
 - Management procedure (mp)
   - Estimation model (est)
-    - If 'estimating' SB, CV = 0.10 (random normal of log(SB))
-    - **MAYBE** If 'estimating' numbers-at-age (N), CV = ## (random normal of log(N))
+    - Default CV of 'estimated' SB is 0.10 (random normal of log(SB))
   - Harvest control rule (hcr)
     - Input 'estimated' SB from preceding year (i.e. data_lag=1) into ICES advice rule to obtain target F in the next year (i.e. management_lag=1)
     - Target F is equivalent to fbar 
   - Implementation system (isys)
-    - **TODO: Year range for mean recruitment, other default assumptions in STF** 
+    - **TODO: Year range for mean recruitment, other default assumptions in STF**
+    - Autocorrelated normal error on target F with Fcv=0.212 and Fphi=0.423 (Defaults from EQSIM) **TODO: Double this is correct**
 - Implementation error model (IEM)
-  - No explicit IEM (i.e. realized catch in OM matches advice)
+  - No explicit IEM
 
 # Prerequisites
 - R (>= 4.2 recommended)
-- FLR packages: `mse`, `FLSRTMB` (and their dependencies)
-- Local helper scripts: `utilities.R`
+- FLR packages: `mse`, `msemodules`, `FLSRTMB` (and their dependencies)
+- Local helper scripts: `utilities_fsquared.R`
 - Example assessment results/objects: `boot/data/sol274.rda`
 
 # Example: North Sea plaice assessed with SAM
@@ -86,8 +86,7 @@ library(mse)    # Contains MSE functionality (shortcut or full-feedback)
 library(FLSRTMB)# SR estimation and uncertainty simulation
 
 # Local helpers (adjust paths as needed)
-source("config.R")
-source("utilities.R")
+source("utilities_fsquared.R")
 
 # Load stock assessment results (toy example, AAP model with increased F)
 # 'run' should be an FLStock-like or assessment object used downstream.
@@ -111,10 +110,10 @@ What these settings mean:
 - `srmodels` specifies the functional forms to estimate and bootstrap from in OM.  
 - `iy`, `dy`, `fy` define the initial year, last year of observations, and final year of the MSE projection period.  
 - `it` controls how many stochastic replicates are run in the OM. 
-- `conditioning_ny` specifies the number of years from the recent to condition **CLARIFY**.  
+- `conditioning_ny` specifies number of years backward from `dy` to use for conditioning future weights, maturity, and exploitation patterns.  
 - `bcv_sa` the CV of estimation uncertainty on SB in the shortcut estimator.  
 - `fg_mp` is the grid of candidate F targets you will test.  
-- `recyrs_mp` is the range of years (from current assessement year) to take geometric mean of recruitment; used in short-term forecast within `isys`.  
+- `recyrs_mp` is the range of years (from current assessment year) to take geometric mean of recruitment; used in short-term forecast within `isys`.  
 
 
 ## Conditioning stock-recruitment
