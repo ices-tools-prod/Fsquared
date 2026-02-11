@@ -1,4 +1,3 @@
-
 #   `Fsquared`: FLR toolset for calculating ICES' F-based reference points
 
 # Authors
