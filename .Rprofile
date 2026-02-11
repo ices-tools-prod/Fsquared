@@ -1,7 +1,7 @@
 
 # LOAD user .Rprofile if it exists
-if(file.exists(Sys.getenv("HOME"), ".Rprofile"))
-  source(Sys.getenv("HOME"), ".Rprofile")
+if(file.exists(file.path(Sys.getenv("HOME"), ".Rprofile")))
+  source(file.path(Sys.getenv("HOME"), ".Rprofile"))
 
 # USE progressr
 if (interactive() && requireNamespace("progressr", quietly = TRUE)) {
