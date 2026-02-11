@@ -14,14 +14,14 @@
 
 Packages required to run this analysis can be inmstalled from the relevant repositories by executing
 
-```r
+```{r, eval=FALSE}
 install.deps(repos=c(FLR="https://flr.r-universe.dev",
   CRAN="https://cloud.r-project.org"))
 ```
 
 The minimum versions needed are stored in the `boot/SOFTWARE.bib` file. A check can be carried out on whether the versions available in the system are up to date to those by calling
 
-```{r checkdeps}
+```{r checkdeps, eval=FALSE}
 library(TAF)
 check.software()
 
