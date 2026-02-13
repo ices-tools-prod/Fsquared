@@ -1,3 +1,11 @@
+---
+output:
+  github_document:
+    html_preview: false
+# or simply:
+# output: github_document
+---
+
 #   `Fsquared`: FLR toolset for calculating ICES' F-based reference points
 
 # Authors
