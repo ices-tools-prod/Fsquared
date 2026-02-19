@@ -149,7 +149,7 @@ arule <- mpCtrl(
 
   # hcr: hockeystick (fbar ~ ssb | lim, trigger, target, min)
   hcr = mseCtrl(method=hockeystick.hcr,
-    args=list(lim=0, trigger=refpts(om)$Btrigger, target=NA, min=0,
+    args=list(lim=0, trigger=refpts(om)$Btrigger, target=0.22, min=0,
     metric="ssb", output="fbar")),
 
   # (i)mplementation (sys)tem: tac.is (C ~ F)
