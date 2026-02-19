@@ -13,11 +13,16 @@
 
 # Installation
 
-Packages required to run this analysis can be installed from the
-relevant repositories by executing
+Packages required to run this analysis (`mse`, `msemodules`, `mseviz`,
+`FLSRTMB` and their dependencies) can be installed from the relevant
+repositories by executing the following code:
 
 ``` r
-install.deps(repos=c(FLR="https://flr.r-universe.dev",
+install.packages("TAF", repos="https://cloud.r-project.org")
+
+pkgs <- TAF::deps()
+
+install.packages(pkgs, repos=c(FLR="https://flr.r-universe.dev",
   CRAN="https://cloud.r-project.org"))
 ```
 
@@ -244,12 +249,13 @@ om <- fwdWindow(om, end = fy, nsq = conditioning_ny, fun = "mean")
 
 ## Specifying Management Procedure (MP)
 
-The MP is consists of three models (specified as modules within the
+The MP is consists of three modules, specified as elements within the
 `mpCtrl` class:  
 - Estimation (`est`): a shortcut stock assessment (with SSB
-uncertainty). - HCR (`hcr`): hockey-stick rule mapping SSB to target F
-with a trigger (Btrigger) and minimum floor.  
-- Implementation system (`isys`): TAC setting via a short-term forecast.
+uncertainty). - HCR (`hcr`): hockey-stick rule mapping SSB to a target F
+with a trigger (Btrigger) and minimum (min) floor.  
+- Implementation system (`isys`): TAC setting via a one-year short-term
+forecast.
 
 ``` r
 # General MSE arguments: timing and lags
@@ -361,26 +367,23 @@ performance(fgrid) <- performance(fgrid, statistics=icestats["PBlim"], year=pys,
 - Reproducibility: keep `set.seed()` fixed while debugging; vary it when
   exploring uncertainty.
 
-# Example: Black Spott Seabream (27.8c9a) assessed with SS3
-
-<https://github.com/akatan999/MSErefpts/blob/main/MSE/ShortCut_HCR_MSE_sbr_ss3om.1000.Rmd>
-
 # Operational guidance
 
-## First run few iterations
+## First run a few iterations
 
-Fsquared can take a long time to run (scale of hours). While many
-iterations are ultimately required to derive stable performance metrics
-(e.g. 1000), we suggest to run the script with a small number of iters
-and a small search grid, e.g. set the grid’s length to be a multiple of
-the number of cores. Make sure the script is running and the results
-seem right; don’t worry too much if results are a bit off on this phase.
+`Fsquared` can take a long time to run, depending on the number of
+cores. While many iterations are ultimately required to derive stable
+performance metrics, we suggest to run the script with a small number of
+iters (e.g. 50) and a small search grid. If the grid’s length is set to
+be the number of cores all of them will run in parallel. Make sure the
+script is running and the results seem right; don’t worry too much if
+results are a bit off on this phase.
 
 Once simulations run without error, then increase your number of iters
-to a minimum of 250 (1000 is better, but be aware of the computing
-capacity you have) and the length of the grid to 50, or whichever value
-comes closer to a multiple of the number of cores you are using for
-efficient parallelization.
+to a minimum of 250 (1000 is better, but be aware of the computing and
+memory capacity you have) and the length of the grid to 50, or whichever
+value comes closer to a multiple of the number of cores you are using
+for efficient parallelization.
 
 ## Consider turning off parallelization when running first few iters
 
@@ -413,17 +416,18 @@ plan(sequential)
 
 This argument turns on and off the standard log-normal bias correction
 that subtracts $0.5\sigma^2$ from the log of a (normal) mean. You need
-to set `bias.correct=FALSE` if your stock-recruitment parameters are
-estimated without the log-normal bias correction. **The
-stock-recruitment parameters output from `bootstrapSR()` are NOT
-estimated with the log-normal bias correction (so use
-`rlnormar1(bias.correct=FALSE)`).** Additionally, earlier versions of
-`FLCore` from which `rlnormar1()` is sourced had the default argument
-`bias.correct=TRUE`. Thus, you should always explicitly set the
-`bias.correct`. You can always check the default argument for
-`bias.correct` in your locally installed version of `FLCore` by typing
-`View(rlnormar1)` and seeing what is `bias.correct=...` in the function
-definition.
+to use `bias.correct=FALSE`, which is already the default, if your
+stock-recruitment parameters are estimated without the log-normal bias
+correction. **The stock-recruitment parameters output from
+`bootstrapSR()` are NOT estimated with the log-normal bias correction
+(so use `rlnormar1(bias.correct=FALSE)`).**
+
+Additionally, earlier versions of `FLCore` from which `rlnormar1()` is
+sourced had the default argument `bias.correct=TRUE`. Thus, you should
+always explicitly set the `bias.correct`. You can always check the
+default argument for `bias.correct` in your locally installed version of
+`FLCore` by typing `View(rlnormar1)` and seeing what is
+`bias.correct=...` in the function definition.
 
 Below are additional details for users of the `srrTMB()` function, which
 is internally called by `bootstrapSR()`. The function `srrTMB()` also
@@ -456,5 +460,5 @@ the **TODO**. If the problem is with code in any one particular package,
 please use the corresponding issue page for its repository at the [FLR
 github project](https://github.com/flr/).
 
-This document is licensed under a Creative Commons
+**LICENCE** This document is licensed under a Creative Commons
 Attribution-ShareAlike 4.0 International Public License
