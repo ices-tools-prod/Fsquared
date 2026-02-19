@@ -1,3 +1,4 @@
+
 # `Fsquared`: FLR toolset for calculating ICES’ F-based reference points
 
 # Authors
@@ -12,17 +13,33 @@
 
 # Installation
 
-``` r
-install.packages(c("FLCore", "mse", "msemodules", "mseviz", "FLSRTMB",
-  "ggplotFL", "FLasher", "TAF"),
-  repos=c(FLR="https://flr.r-universe.dev", CRAN="https://cloud.r-project.org")) 
-```
+Packages required to run this analysis can be installed from the
+relevant repositories by executing
 
 ``` r
-handlers(global=TRUE)
+install.deps(repos=c(FLR="https://flr.r-universe.dev",
+  CRAN="https://cloud.r-project.org"))
 ```
 
-- Run first with it = cores, so that the call to mps() runs in parallel
+The minimum versions needed are stored in the `boot/SOFTWARE.bib` file.
+A check can be carried out on whether the versions available in the
+system are up to date to those by calling
+
+``` r
+library(TAF)
+check.software()
+```
+
+## Progress
+
+The `mse` package makes use of `progressr`, if available, to report on
+the progress of simulation runs. Standard progress bars are used by
+default as defined in the local `.Rprofile` file. To switch them off
+please run
+
+``` r
+handlers(global=FALSE)
+```
 
 # Introduction
 
@@ -31,78 +48,86 @@ simulation modeling toolset for calculating ICES fishing mortality
 reference points (Fp05 and Fmsy) using the
 [mse](https://flr-project.org/mse) package. This toolset comprises R
 scripts structured according to the TAF system. The code within these R
-scripts was adapted from the toolset developed for ICES WKREBUILD2
-**\[ADD REF\]**. A tutorial is available for the WKREBUILD2 toolset that
-describes setting up, running, and summarising results of simulations
+scripts was adapted from the toolset developed for ICES WKREBUILD2, for
+which a tutorial is available that describes setting up, running, and
+summarising results of simulations
 ([here](https://htmlpreview.github.io/?https://github.com/ices-tools-prod/WKREBUILD_toolset/blob/main/tutorial.html)).
-Thus, we refer users to the [WKREBUILD2
-tutorial](https://htmlpreview.github.io/?https://github.com/ices-tools-prod/WKREBUILD_toolset/blob/main/tutorial.html)
-for further details not covered in this tutorial.
+We refer users to the WKREBUILD2 tutorial for further details not
+covered in this tutorial.
 
 # Workflow
 
 At the heart of this toolset is a shortcut MSE framework that introduces
 some level of estimation error from the management procedure stock
 assessment model and, uses a short-term forecast to bridge the data and
-management lags, as it is commonly done for asdvice in ICES.
+management lags, as it is commonly done for advice in ICES.
 
-To setup and run the shortcut MSE, the user would generally take these
+`model_fsquared.R` sets up and runs the shortcut MSE, generally in these
 steps:
 
 1.  Set simulation parameters such as the number of iterations and
-    projection years (`config.R`)
+    projection years.
 2.  Configure and/or condition parameters of the operating model (OM)
-    and the management procedure (MP) (`frps.R`).
+    and the management procedure (MP).
 3.  Run closed loop simulations of the standard ICES advice rule
-    parameterized by the MSY Btrigger \[REFERENCE\] over a range of
-    Ftarget values (`frps.R`).
+    parameterized by the MSY Btrigger over a range of Ftarget values.
 4.  Derive equilibrium distributions of stock quantities (spawning
     biomass, catches, etc.) for each Ftarget and calculate ICES’ Fp05
-    and Fmsy reference points (`output.R`).
+    and Fmsy reference points.
 
-# Default assumptions of tool
+- Run first with it = cores, so that the call to mps() runs in parallel
+
+# Summary and default assumptions of tool
 
 - Operating model (om)
   - Future weights, maturity, and exploitation pattern is the average of
-    the most recent \## years **(CHECK)**
+    the most recent 5 years (EQSIM default)
 - Observation error model (oem)
   - No explicit OEM (i.e. perfect observations of spawning biomass)
 - Management procedure (mp)
   - Estimation model (est)
-    - If ‘estimating’ SB, CV = 0.10 (random normal of log(SB))
-    - **MAYBE** If ‘estimating’ numbers-at-age (N), CV = \## (random
-      normal of log(N))
+    - Default CV (normal distribution) of ‘estimated’ log(SB) is 0
+      (generated from function `shortcut_devs()`); suggested starting
+      CV=0.1
   - Harvest control rule (hcr)
     - Input ‘estimated’ SB from preceding year (i.e. data_lag=1) into
       ICES advice rule to obtain target F in the next year
       (i.e. management_lag=1)
-    - Target F is equivalent to fbar
+    - Target F is directly applied on OM stock
+    - Target F corresponds to fbar, with the fbar age range specified in
+      the input `FLStock` object
   - Implementation system (isys)
-    - **TODO: Year range for mean recruitment, other default assumptions
-      in STF**
+    - Short-term forecast that uses geometric mean of recruitment from
+      the 3 most years
+    - Applies Target F from hcr with multiplicative errors on
+      ‘estimated’ SSB
+    - Multiplicative errors on target F are generated as normally
+      distributed and autocorrelated log(F) values from
+      `shortcut_devs()`; default arguments are normal CV=0.212 and
+      autocorrelation coefficient=0.423
 - Implementation error model (IEM)
-  - No explicit IEM (i.e. realized catch in OM matches advice)
+  - No explicit IEM
 
 # Prerequisites
 
 - R (\>= 4.2 recommended)
-- FLR packages: `mse`, `FLSRTMB` (and their dependencies)
-- Local helper scripts: `utilities.R`
+- FLR packages: `mse`, `msemodules`, `FLSRTMB` (and their dependencies)
+- Local helper scripts: `utilities_fsquared.R`
 - Example assessment results/objects: `boot/data/sol274.rda`
 
 # Example: North Sea plaice assessed with SAM
 
-Below are condensed code snippets extracted from `frps.R`.
+Below are condensed code snippets extracted from `model_fsquared.R`.
 
 ## Specifying simulation parameters
 
 ``` r
 library(mse)    # Contains MSE functionality (shortcut or full-feedback)
+library(msemodules)
 library(FLSRTMB)# SR estimation and uncertainty simulation
 
 # Local helpers (adjust paths as needed)
-source("config.R")
-source("utilities.R")
+source("utilities_fsquared.R")
 
 # Load stock assessment results (toy example, AAP model with increased F)
 # 'run' should be an FLStock-like or assessment object used downstream.
@@ -111,30 +136,35 @@ load("boot/data/sol274.rda")
 # Key simulation parameters
 stkname <- "sol.27.4"
 srmodels <- c("segreg")          
-iy <- 2022                       
-dy <- iy - 1                     
-fy <- 2055                       
-it <- 5                          
-set.seed(987) # Fixed for reproducibility during initial testing
-conditioning_ny <- 5             
-bcv_sa <- 0.10                   
+iy <- 2022           # Starting year of projection period                 
+dy <- iy - 1         # Current data year (i.e. when observations last collected)
+fy <- 2055           # Final year of projection period               
+it <- 5              # Number of iterations (i.e. individual projections)
+set.seed(987)        # Fixed for reproducibility during initial testing
+conditioning_ny <- 5 # Number of years in tail of historical period used to project biology and exploitation         
+bcv_sa <- 0.10       # CV of shortcut errors on log(SSB)
+fcv_sa <- 0.10       # CV of shortcut errors on log(F)
+fphi_sa <- 0.0       # Autocorrelation coefficient of shortcut errors on log(F)
 fg_mp <- seq(0, 1.5, length=51) 
-recyrs_mp <- -2                 
+recyrs_mp <- -2      # Maximum lags indicating start of recent historical recruitment for which geometric mean is taken to use in short term forecast          
 ```
 
-What these settings mean: - `srmodels` specifies the functional forms to
-estimate and bootstrap from in OM.  
+What these settings mean:
+
+- `srmodels` specifies the functional forms to estimate and bootstrap
+  from in OM.  
 - `iy`, `dy`, `fy` define the initial year, last year of observations,
-and final year of the MSE projection period.  
-- `it` controls how many stochastic replicates are run in the OM. -
-`conditioning_ny` specifies the number of years from the recent to
-condition **CLARIFY**.  
+  and final year of the MSE projection period.  
+- `it` controls how many stochastic replicates are run in the OM.
+- `conditioning_ny` specifies number of years backward from `dy` to use
+  for conditioning future weights, maturity, and exploitation
+  patterns.  
 - `bcv_sa` the CV of estimation uncertainty on SB in the shortcut
-estimator.  
+  estimator.  
 - `fg_mp` is the grid of candidate F targets you will test.  
-- `recyrs_mp` is the range of years (from current assessement year) to
-take geometric mean of recruitment; used in short-term forecast within
-`isys`.
+- `recyrs_mp` is the range of years (from current assessment year) to
+  take geometric mean of recruitment; used in short-term forecast within
+  `isys`.
 
 ## Conditioning stock-recruitment
 
@@ -173,19 +203,24 @@ AR(1) structure given `sdlog` and `rho`.
 Notes:  
 - $\sigma_R$ controls recruitment variability; $\rho$ controls temporal
 autocorrelation (AR(1)).  
-- `spr0` is used by certain SR models for scaling.
+- `spr0` is used by certain SR models for scaling.  
+- **Importantly, `bias.correct` should always be explicitly specified,
+and usually will be FALSE as it is in this example, but please read the
+[How to specify
+`bias.correct`](#how-to-specify-bias-correct-argument-in-rlnormar1-function)
+section below.**
 
 ## Creating the OM object (`FLom` class)
 
 Key functions:  
 - `FLom(...)`: creates an Operating Model object combining
 stock-specific biology (stock weights, maturity, etc.), reference
-points, SR model(s) and parameterss, and recruitment deviances.  
+points, SR model(s) and parameters, and recruitment deviances.  
 - `propagate(run, it)`: replicates the `run` object for `it` number of
 iterations.  
 - `fwdWindow(...)`: extends the year range of the `om` object to the end
-of projection period (year `fy`), carrying forward recent historical
-averages of **\##**.
+of projection period (year `fy`), carrying forward the mean of the most
+recent `conditioning_ny` years.
 
 ``` r
 # 'refpts' should contain reference points such as Fmsy and Btrigger
@@ -202,8 +237,9 @@ om <- FLom(
   name = stkname
 )
 
-# Extend OM into the future, conditioning on recent years
-om <- fwdWindow(om, end = fy, nsq = conditioning_ny)
+# Extend OM into the future, conditioning on the mean of recent years
+# The `fun` argument can be one of c("mean", "geomean", "sample")
+om <- fwdWindow(om, end = fy, nsq = conditioning_ny, fun = "mean")
 ```
 
 ## Specifying Management Procedure (MP)
@@ -220,12 +256,13 @@ with a trigger (Btrigger) and minimum floor.
 mseargs <- list(
   iy = iy, fy = fy,      # start and end of projections
   data_lag = 1,          # 1-year lag between observation and availability
-  management_lag = 1,    # 1-year lag from advice to implementation
-  frq = 1                # annual frequency
+  management_lag = 1,    # 1-year lead from advice to implementation
+  frq = 1                # annual frequency of advice
 )
 
-# Shortcut estimator uncertainty (SSB deviances)
-sdevs <- shortcut_devs(om, SSBcv = bcv_sa)
+# Shortcut estimator uncertainty (normal deviances on log(SSB) and log(F))
+# To check default arguments, type `msemodules:::shortcut_devs` in your console)
+sdevs <- shortcut_devs(om, SSBcv=bcv_sa, Fcv=fcv_sa, Fphi=fphi_sa)
 
 # Define the ICES-style advice rule
 arule <- mpCtrl(list(
@@ -238,7 +275,7 @@ arule <- mpCtrl(list(
   hcr = mseCtrl(
     method = hockeystick.hcr,
     args = list(
-      lim = 0,
+      lim = 0,  # 0 means the origin; when testing ICES AR, this may equal Blim 
       trigger = refpts(om)$Btrigger,
       target = refpts(om)$Fmsy,
       min = 0,
@@ -249,7 +286,7 @@ arule <- mpCtrl(list(
   # Implementation system: TAC based on F
   isys = mseCtrl(
     method = tac.is,
-    args = list(recyrs = recyrs_mp)
+    args = list(recyrs = recyrs_mp, Fdevs=sdevs$F)
   )
 ))
 ```
@@ -305,8 +342,12 @@ Adapt as needed to your object classes.
 # Example: list available runs
 names(fgrid)
 
-# Example: pick one F run and inspect time series
-# TODO
+# Plots summary
+plot(om, fgrid)
+
+# Computs average performance over the projection years (pys)
+performance(fgrid) <- performance(fgrid, statistics=icestats["PBlim"], year=pys,
+  type="arule")
 ```
 
 ## Troubleshooting and tips
@@ -322,18 +363,31 @@ names(fgrid)
 
 # Example: Black Spott Seabream (27.8c9a) assessed with SS3
 
-**TODO: Highlight sex structure**
+<https://github.com/akatan999/MSErefpts/blob/main/MSE/ShortCut_HCR_MSE_sbr_ss3om.1000.Rmd>
 
-# Key decision points and advice
+# Operational guidance
 
-## Running your first simulations
+## First run few iterations
 
-The use of the `mse` package involves calls to various functions and
-generations of large objects. While many iterations are ultimately
-required to derive stable performance metric (e.g. 1000), users should
-use few simulations (e.g. \<5) when first configuring these scripts and
-starting simulation runs. Additionally, parallelization is set up by
-default in the `config.R` to further reduce the total run time as such:
+Fsquared can take a long time to run (scale of hours). While many
+iterations are ultimately required to derive stable performance metrics
+(e.g. 1000), we suggest to run the script with a small number of iters
+and a small search grid, e.g. set the grid’s length to be a multiple of
+the number of cores. Make sure the script is running and the results
+seem right; don’t worry too much if results are a bit off on this phase.
+
+Once simulations run without error, then increase your number of iters
+to a minimum of 250 (1000 is better, but be aware of the computing
+capacity you have) and the length of the grid to 50, or whichever value
+comes closer to a multiple of the number of cores you are using for
+efficient parallelization.
+
+## Consider turning off parallelization when running first few iters
+
+Parallelization is the process of distributing computing tasks across
+multiple processors (also called cores) on your PC. The number of cores
+over which iterations distributed is set up by default in the
+`model_fsquared.R` at 5, as such:
 
 ``` r
 cores <- 5
@@ -345,41 +399,42 @@ if(os.linux()) {
 }
 ```
 
-When first running simulations, the user may also turn off
-parallelization (i.e. run sequentially) in order to make debugging
-potential errors easier. To turn off parallelization, use the following
-code (e.g. inside `config.R` or executing directly in your console if
-you are running code line by line:)
+When first running simulations, you may also turn off parallelization
+(i.e. run sequentially) in order to make debugging potential errors
+easier. To turn off parallelization, use the following code (e.g. inside
+`config.R` or executing directly in your console if you are running code
+line by line):
 
 ``` r
 plan(sequential)
 ```
 
-## Conditioning recruitment in the OM
+## How to specify `bias.correct` argument in `rlnormar1()` function
 
-The user has a couple options to parameterizing stock-recruitment
-relationships and process error uncertainty. The first option is to use
-model fitting and simulation functionality of the `FLSRTMB` within
-`FLR`. Details on model fitting with `FLSRTMB` can be found in the
-[WKREBUILD2
-tutorial](https://htmlpreview.github.io/?https://github.com/ices-tools-prod/WKREBUILD_toolset/blob/main/tutorial.html).
-To resample stock-recruitment parameters and future recruitment deviates
-(parametric bootstrap), use:
+This argument turns on and off the standard log-normal bias correction
+that subtracts $0.5\sigma^2$ from the log of a (normal) mean. You need
+to set `bias.correct=FALSE` if your stock-recruitment parameters are
+estimated without the log-normal bias correction. **The
+stock-recruitment parameters output from `bootstrapSR()` are NOT
+estimated with the log-normal bias correction (so use
+`rlnormar1(bias.correct=FALSE)`).** Additionally, earlier versions of
+`FLCore` from which `rlnormar1()` is sourced had the default argument
+`bias.correct=TRUE`. Thus, you should always explicitly set the
+`bias.correct`. You can always check the default argument for
+`bias.correct` in your locally installed version of `FLCore` by typing
+`View(rlnormar1)` and seeing what is `bias.correct=...` in the function
+definition.
 
-``` r
-# BOOTSTRAP and SELECT model by largest logLik **
-srpars <- bootstrapSR(run, iters=it, spr0=mean(spr0y(run)[,spryrs]), models=srmodels)
-
-# GENERATE future deviances: lognormal autocorrelated **
-srdevs <- rlnormar1(sdlog=srpars$sigmaR, rho=srpars$rho, years=seq(dy, fy), bias.correct=FALSE)
-```
-
-**TODO: Finish writing out the following**  
-**- with bootstrapSR(), method=“best” is default and select based only
-on likelihood(?) Discuss other options?**  
-**- with rlnormar1(), make sure to address bias.correct argument**  
-**- Describe option to input your own stock-recruitment parameters and
-errors**
+Below are additional details for users of the `srrTMB()` function, which
+is internally called by `bootstrapSR()`. The function `srrTMB()` also
+has a `bias.correct` argument (with default `bias.correct=TRUE`), **but
+this is NOT the log-normal bias correction**. This argument turns on a
+bias correction that is 1) for a uniform logistic prior (on Blim/B0) and
+2) only applied when `model=segreg` and/or `model=segregDa`. So if you
+are working directly with `srrTMB()` and use `bias.correct=TRUE` (as
+well as `bias.correct=FALSE`), you still call
+`rlnormar1(bias.correct=FALSE)` if simulating new recruitment from the
+estimated parameters output by `srrTMB()` (e.g. `sigmaR` and `rho`).
 
 ## Obtaining or calculating estimation error for shortcut assessment
 
