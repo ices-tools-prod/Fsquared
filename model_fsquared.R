@@ -67,9 +67,9 @@ refpts <- FLPar(c(Blim = Blim, Btrigger = Btrigger))
 # TODO: no. of cores to use in parallel, defauls to 2/3 of those in machine
 cores <- round(availableCores() * 0.6)
 # TODO: F search grid
-fg_mp <- seq(0, 1.5, length=cores)
+fg_mp <- seq(0, 1.5, length=cores * 5)
 # Number of iterations
-it <- 500
+it <- max(cores * 50, 500)
 # Random seed
 set.seed(987)
 
